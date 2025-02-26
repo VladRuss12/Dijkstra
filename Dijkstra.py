@@ -6,11 +6,12 @@ class Dijkstra:
         self.graph = graph
 
     def find_shortest_path(self, start, end):
+        if start not in self.graph or end not in self.graph:
+            raise ValueError(f"One or both of the vertices {start}, {end} do not exist in the graph.")
+
         distances = {vertex: float('inf') for vertex in self.graph}
         distances[start] = 0
-
         previous_vertices = {vertex: None for vertex in self.graph}
-
         priority_queue = [(0, start)]
 
         while priority_queue:
