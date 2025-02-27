@@ -1,9 +1,16 @@
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox, QDialog
+from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QDialog
+
+from GUI.GraphSettingsDialog import GraphSettingsDialog
 from GUI.GraphWidget import GraphWidget
-from Graph import Graph
-from GUI.GraphSettingsDialog import GraphSettingsDialog  # Импортируем наш диалог с настройками
+from GraphGen.Graph import Graph
+from GraphGen.RandomGraphPattern import RandomGraphPattern
+from GraphGen.TreeGraphPattern import TreeGraphPattern
+from GraphGen.ClusteredGraphPattern import ClusteredGraphPattern
+from GraphGen.HexagonalGridGraphPattern import HexagonalGridGraphPattern
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -49,8 +56,19 @@ class MainWindow(QMainWindow):
         min_weight = settings['min_weight']
         max_weight = settings['max_weight']
         graph_type = settings['graph_type']
+        pattern_index = settings['pattern']
 
-        self.graph = Graph(num_vertices, graph_type, min_weight, max_weight)
+        # Выбор паттерна в зависимости от выбора пользователя
+        if pattern_index == 0:
+            pattern = RandomGraphPattern()
+        elif pattern_index == 1:
+            pattern = TreeGraphPattern()
+        elif pattern_index == 2:
+            pattern = ClusteredGraphPattern()
+        elif pattern_index == 3:
+            pattern = HexagonalGridGraphPattern()
+
+        self.graph = Graph(num_vertices, graph_type, min_weight, max_weight, pattern)
         self.graph.generate_graph(num_edges)
         self.graph.display_positions(self.width(), self.height())
 

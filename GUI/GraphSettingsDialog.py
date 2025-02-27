@@ -1,5 +1,4 @@
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QSpinBox, QComboBox, QPushButton, QDialogButtonBox
-
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QFormLayout, QSpinBox, QComboBox, QDialogButtonBox
 
 class GraphSettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -28,6 +27,13 @@ class GraphSettingsDialog(QDialog):
         self.graph_type_combo.addItem("Ориентированный")
         self.graph_type_combo.addItem("Неориентированный")
 
+        # Добавление ComboBox для выбора паттерна
+        self.pattern_combo = QComboBox(self)
+        self.pattern_combo.addItem("Случайный граф")
+        self.pattern_combo.addItem("Древовидный граф")
+        self.pattern_combo.addItem("Граф с кластеризацией")
+        self.pattern_combo.addItem("Граф в виде сот")
+
         # Кнопки
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
         self.buttons.accepted.connect(self.accept)
@@ -41,6 +47,7 @@ class GraphSettingsDialog(QDialog):
         form_layout.addRow("Минимальный вес рёбер:", self.min_weight_spin)
         form_layout.addRow("Максимальный вес рёбер:", self.max_weight_spin)
         form_layout.addRow("Тип графа:", self.graph_type_combo)
+        form_layout.addRow("Паттерн графа:", self.pattern_combo)
 
         layout.addLayout(form_layout)
         layout.addWidget(self.buttons)
@@ -51,5 +58,6 @@ class GraphSettingsDialog(QDialog):
             'num_edges': self.num_edges_spin.value(),
             'min_weight': self.min_weight_spin.value(),
             'max_weight': self.max_weight_spin.value(),
-            'graph_type': self.graph_type_combo.currentIndex()
+            'graph_type': self.graph_type_combo.currentIndex(),
+            'pattern': self.pattern_combo.currentIndex()  # Добавляем индекс выбранного паттерна
         }
