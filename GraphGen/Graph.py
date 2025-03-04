@@ -1,6 +1,6 @@
 from GraphGen.GraphPattern import GraphPattern
 class Graph:
-    def __init__(self, num_vertices, min_weight, max_weight, pattern: GraphPattern, edge_probability=0.15):
+    def __init__(self, num_vertices, min_weight, max_weight, pattern: GraphPattern, edge_probability):
         self.num_vertices = num_vertices
         self.min_weight = min_weight
         self.max_weight = max_weight

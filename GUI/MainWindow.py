@@ -3,6 +3,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QDialog
 
 from GUI.GraphSettingsDialog import GraphSettingsDialog
+from GUI.DijkstraDialog import DijkstraDialog
 from GUI.GraphWidget import GraphWidget
 from GraphGen.Graph import Graph
 from GraphGen.RandomGraphPattern import RandomGraphPattern
@@ -37,7 +38,6 @@ class MainWindow(QMainWindow):
         graph_menu.addAction(generate_action)
 
         return menu_bar
-
     def createGraphArea(self):
         self.graph_widget = GraphWidget(self.graph)
         return self.graph_widget
@@ -53,8 +53,7 @@ class MainWindow(QMainWindow):
         min_weight = settings['min_weight']
         max_weight = settings['max_weight']
         pattern_index = settings['pattern']
-        edge_probability = settings.get('edge_probability',
-                                        0.15)  # Если ключ не найден, установить значение по умолчанию
+        edge_probability = settings.get('edge_probability')  # Если ключ не найден, установить значение по умолчанию
 
         # Выбор паттерна в зависимости от выбора пользователя
         if pattern_index == 0:
@@ -75,3 +74,4 @@ class MainWindow(QMainWindow):
 
         self.graph_widget.graph = self.graph
         self.graph_widget.drawGraph()
+
