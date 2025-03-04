@@ -21,3 +21,7 @@ class Graph:
 
     def get_positions(self):
         return self.positions
+
+    @property
+    def is_generated(self):
+        return bool(self.graph) and bool(self.positions)

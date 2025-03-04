@@ -1,120 +1,135 @@
 import random
 import math
-import numpy as np
+from typing import Dict, List, Tuple
 from GraphGen.GraphPattern import GraphPattern
 
 
 class ClusteredGraphPattern(GraphPattern):
-    def __init__(self):
-        # По умолчанию значения будут переопределяться в зависимости от количества вершин
+    def __init__(self, inter_cluster_prob: float = 0.2):
         self.num_clusters = 3
         self.cluster_radius = 300
+        self.inter_cluster_prob = inter_cluster_prob
+        self.max_placement_attempts = 100
 
-    def generate_graph(self, num_vertices, edge_probability, min_weight, max_weight):
-        # Динамически определяем количество кластеров на основе количества вершин.
-        # Например, используем квадратный корень от количества вершин (минимум 2).
+    def generate_graph(self, num_vertices: int, edge_probability: float,
+                       min_weight: int, max_weight: int) -> Dict[str, Dict[str, int]]:
+        # Динамическое определение количества кластеров
         self.num_clusters = max(2, int(math.sqrt(num_vertices)))
-        # Можем также масштабировать радиус кластера (например, с корневой зависимостью)
-        self.cluster_radius = 300 * (num_vertices / 100) ** 0.5
 
-        # Сначала распределим вершины по кластерам
+        # Автоматическая настройка радиуса кластера
+        self.cluster_radius = self._calculate_base_radius(num_vertices)
+
         cluster_assignments = self.assign_clusters(num_vertices, self.num_clusters)
-
         graph = {str(i): {} for i in range(num_vertices)}
 
-        # Определяем вероятность для межкластерных рёбер (нам нужно меньше связей между кластерами)
-        edge_probability_inter = edge_probability * 0.2  # например, 20% от базовой вероятности
+        edge_prob_inter = edge_probability * self.inter_cluster_prob
 
+        # Оптимизированное создание рёбер
         for u in range(num_vertices):
             for v in range(u + 1, num_vertices):
-                if cluster_assignments[u] == cluster_assignments[v]:
-                    # Если вершины принадлежат одному кластеру – используем базовую вероятность
-                    if random.random() <= edge_probability:
-                        weight = random.randint(min_weight, max_weight)
-                        graph[str(u)][str(v)] = weight
-                        graph[str(v)][str(u)] = weight
-                else:
-                    # Если вершины из разных кластеров – создаем ребро с меньшей вероятностью
-                    if random.random() <= edge_probability_inter:
-                        weight = random.randint(min_weight, max_weight)
-                        graph[str(u)][str(v)] = weight
-                        graph[str(v)][str(u)] = weight
+                same_cluster = cluster_assignments[u] == cluster_assignments[v]
+                prob = edge_probability if same_cluster else edge_prob_inter
 
-        # Сохраняем распределение по кластерам для использования при отображении
+                if random.random() <= prob:
+                    weight = random.randint(min_weight, max_weight)
+                    graph[str(u)][str(v)] = weight
+                    graph[str(v)][str(u)] = weight
+
         self.cluster_assignments = cluster_assignments
-
         return graph
 
-    def display_positions(self, canvas_width, canvas_height, positions, min_distance=50):
-        # Получаем центры кластеров в пределах области отображения
-        centers = self.generate_cluster_centers(canvas_width, canvas_height, self.num_clusters)
-
-        # Если распределение по кластерам уже было посчитано при генерации графа, используем его
-        if hasattr(self, 'cluster_assignments'):
-            cluster_assignments = self.cluster_assignments
-        else:
-            cluster_assignments = self.assign_clusters(len(positions), self.num_clusters)
+    def display_positions(self, canvas_width: float, canvas_height: float,
+                          positions: List[str], min_distance: float = 30) -> Dict[str, Tuple[float, float]]:
+        centers = self.generate_cluster_centers(canvas_width, canvas_height)
+        cluster_assignments = self.cluster_assignments if hasattr(self, 'cluster_assignments') \
+            else self.assign_clusters(len(positions), self.num_clusters)
 
         position_map = {}
-        # Для размещения вершин внутри каждого кластера используем радиус меньше, чем при генерации ребер
-        cluster_radius = self.cluster_radius * 0.5
+        cluster_radius = self._calculate_display_radius(canvas_width, canvas_height)
+        cluster_nodes = self._distribute_nodes_to_clusters(cluster_assignments)
 
-        for i, cluster_id in enumerate(cluster_assignments):
-            # Начальное случайное размещение внутри кластера
-            angle = random.uniform(0, 2 * math.pi)
-            distance = random.uniform(0, cluster_radius)
-            x = centers[cluster_id][0] + distance * math.cos(angle)
-            y = centers[cluster_id][1] + distance * math.sin(angle)
+        for cluster_id, nodes in cluster_nodes.items():
+            cx, cy = centers[cluster_id]
+            placed = []
 
-            # Проверка на минимальное расстояние от других узлов
-            while self.check_overlap(x, y, position_map, min_distance):
-                angle = random.uniform(0, 2 * math.pi)
-                distance = random.uniform(0, cluster_radius)
-                x = centers[cluster_id][0] + distance * math.cos(angle)
-                y = centers[cluster_id][1] + distance * math.sin(angle)
+            max_nodes = self._calculate_max_nodes(cluster_radius, min_distance)
+            if len(nodes) > max_nodes:
+                cluster_radius *= 1.2  # Автоматическое увеличение радиуса
+                max_nodes = self._calculate_max_nodes(cluster_radius, min_distance)
 
-            position_map[str(i)] = (x, y)
+            for node in nodes:
+                x, y = self._place_node(cx, cy, cluster_radius, placed, min_distance)
+                position_map[str(node)] = (x, y)
+                placed.append((x, y))
 
         return position_map
 
-    def check_overlap(self, x, y, position_map, min_distance):
-        """
-        Проверяет, не перекрывается ли текущая позиция с уже размещёнными узлами.
-        """
-        for (px, py) in position_map.values():
-            if self.euclidean_distance((x, y), (px, py)) < min_distance:
+    def _place_node(self, cx: float, cy: float, radius: float,
+                    placed: List[Tuple[float, float]], min_dist: float) -> Tuple[float, float]:
+        for _ in range(self.max_placement_attempts):
+            angle = random.uniform(0, 2 * math.pi)
+            distance = random.uniform(0, radius)
+            x = cx + distance * math.cos(angle)
+            y = cy + distance * math.sin(angle)
+
+            if not self._check_overlap(x, y, placed, min_dist):
+                return (x, y)
+
+        # Если не удалось разместить - возвращаем случайную позицию
+        return (cx + random.uniform(-radius, radius),
+                cy + random.uniform(-radius, radius))
+
+    def _check_overlap(self, x: float, y: float,
+                       placed: List[Tuple[float, float]], min_dist: float) -> bool:
+        for (px, py) in placed:
+            if math.hypot(x - px, y - py) < min_dist:
                 return True
         return False
 
-    def generate_cluster_centers(self, width, height, num_clusters):
-        """
-        Размещаем центры кластеров равномерно по области.
-        """
-        centers = []
-        angle_step = 2 * math.pi / num_clusters
-        # Используем меньший радиус, чтобы кластеры не выходили за границы экрана
-        center_radius = min(width, height) / 3
+    def _calculate_base_radius(self, num_vertices: int) -> float:
+        return 250 * math.sqrt(num_vertices / 50)
 
-        for i in range(num_clusters):
-            angle = i * angle_step
-            cx = width / 2 + center_radius * math.cos(angle)
-            cy = height / 2 + center_radius * math.sin(angle)
-            centers.append((cx, cy))
+    def _calculate_display_radius(self, width: float, height: float) -> float:
+        return min(width, height) / (self.num_clusters * 2)
+
+    def _calculate_max_nodes(self, radius: float, min_dist: float) -> int:
+        area = math.pi * radius ** 2
+        node_area = math.pi * (min_dist / 2) ** 2
+        return max(1, int(area / node_area))
+
+    def _distribute_nodes_to_clusters(self, cluster_assignments: List[int]) -> Dict[int, List[int]]:
+        clusters = {}
+        for idx, cluster_id in enumerate(cluster_assignments):
+            if cluster_id not in clusters:
+                clusters[cluster_id] = []
+            clusters[cluster_id].append(idx)
+        return clusters
+
+    def generate_cluster_centers(self, width: float, height: float) -> List[Tuple[float, float]]:
+        radius = min(width, height) * 0.35
+        centers = []
+        angle_step = 2 * math.pi / self.num_clusters
+
+        for i in range(self.num_clusters):
+            angle = i * angle_step + random.uniform(-0.1, 0.1)
+            x = width / 2 + radius * math.cos(angle)
+            y = height / 2 + radius * math.sin(angle)
+            centers.append((x, y))
 
         return centers
 
-    def assign_clusters(self, num_vertices, num_clusters):
-        """
-        Равномерно распределяем вершины по кластерам.
-        """
-        clusters = []
-        for cluster_id in range(num_clusters):
-            clusters.extend([cluster_id] * (num_vertices // num_clusters))
-        # Если остались вершины – распределяем их случайно
-        while len(clusters) < num_vertices:
-            clusters.append(random.randint(0, num_clusters - 1))
-        random.shuffle(clusters)
-        return clusters
+    def assign_clusters(self, num_vertices: int, num_clusters: int) -> List[int]:
+        base_size = num_vertices // num_clusters
+        clusters = [base_size] * num_clusters
 
-    def euclidean_distance(self, p1, p2):
-        return math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2)
+        # Распределение оставшихся вершин
+        for i in range(num_vertices % num_clusters):
+            clusters[i] += 1
+
+        # Создание списка назначений
+        cluster_assignments = []
+        for cluster_id, size in enumerate(clusters):
+            cluster_assignments.extend([cluster_id] * size)
+
+        random.shuffle(cluster_assignments)
+        return cluster_assignments

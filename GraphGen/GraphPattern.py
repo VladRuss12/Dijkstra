@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 # Абстрактный класс для генерации графа
 class GraphPattern(ABC):
     @abstractmethod
-    def generate_graph(self, num_vertices, max_weight, min_weight, edge_probability):
+    def generate_graph(self, num_vertices, edge_probability,  max_weight, min_weight):
         pass
 
     @abstractmethod

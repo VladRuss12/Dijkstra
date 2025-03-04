@@ -1,3 +1,5 @@
+from typing import List
+
 from PySide6.QtGui import QColor, QPen, QBrush, QFont
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsTextItem, QGraphicsRectItem
 import random
@@ -9,6 +11,7 @@ class GraphWidget(QGraphicsView):
         self.graph = graph
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
+        self.highlighted_path = []
 
     def drawGraph(self):
         self.scene.clear()
@@ -72,6 +75,8 @@ class GraphWidget(QGraphicsView):
 
             self.scene.addItem(text_item)
 
+        if self.highlighted_path:
+            self._draw_highlighted_path()
     def randomColor(self):
         """Генерация случайного цвета RGB, исключая белый"""
         while True:
@@ -80,3 +85,42 @@ class GraphWidget(QGraphicsView):
             b = random.randint(0, 255)
             if (r, g, b) != (255, 255, 255):
                 return (r, g, b)
+
+    def highlight_path(self, path: List[str]):
+        self.highlighted_path = path
+        self.drawGraph()
+
+    def _draw_highlighted_path(self):
+        path_edges = []
+        for i in range(len(self.highlighted_path) - 1):
+            u = self.highlighted_path[i]
+            v = self.highlighted_path[i + 1]
+            path_edges.append((u, v))
+
+        # Рисуем рёбра пути
+        for u, v in path_edges:
+            u_pos = self.graph.positions[u]
+            v_pos = self.graph.positions[v]
+
+            pen = QPen(QColor(255, 0, 0))  # Красный цвет
+            pen.setWidth(5)
+            line = self.scene.addLine(
+                u_pos[0], u_pos[1],
+                v_pos[0], v_pos[1],
+                pen
+            )
+            line.setZValue(1)  # Поверх других элементов
+
+        # Подсветка узлов
+        for node in self.highlighted_path:
+            pos = self.graph.positions[node]
+            radius = 25  # Немного больше обычных узлов
+            brush = QBrush(QColor(255, 0, 0, 100))  # Красная подсветка
+            self.scene.addEllipse(
+                pos[0] - radius,
+                pos[1] - radius,
+                radius * 2,
+                radius * 2,
+                QPen(Qt.NoPen),
+                brush
+            ).setZValue(0.5)
