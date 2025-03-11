@@ -20,7 +20,6 @@ class GraphWidget(QGraphicsView):
         self.tooltip = CustomToolTip(self)  # Создаем пользовательскую подсказку
         self.tooltip.hide()  # Скрываем подсказку при старте
 
-
     def drawGraph(self):
         self.scene.clear()
         self.adjustSceneSize()  # Добавляем автоматическое масштабирование
@@ -36,7 +35,7 @@ class GraphWidget(QGraphicsView):
                     v_pos_offset = (v_pos[0] + random.uniform(-5, 5), v_pos[1] + random.uniform(-5, 5))
 
                     pen = QPen(QColor(0, 0, 0))  # Черный цвет
-                    pen.setWidth(1)  # Уменьшаем толщину
+                    pen.setWidth(2)  # Уменьшаем толщину
                     pen.setColor(QColor(0, 0, 0, 100))  # Прозрачный чёрный цвет
                     pen.setCapStyle(Qt.RoundCap)
                     pen.setJoinStyle(Qt.RoundJoin)
@@ -99,7 +98,7 @@ class GraphWidget(QGraphicsView):
         point = self.mapToScene(event.pos())
         item = self.scene.itemAt(point, self.transform())
 
-        if isinstance(item, QGraphicsItem):
+        if item and isinstance(item, QGraphicsItem):
             data = item.data(0)
             if data:
                 if self.current_item != item:
@@ -116,7 +115,28 @@ class GraphWidget(QGraphicsView):
                     # Показываем пользовательскую подсказку
                     self.tooltip.setText(tooltip_text)
                     self.tooltip.adjustSize()
-                    self.tooltip.move(event.globalPos().x() + 10, event.globalPos().y() + 10)
+
+                    # Получаем глобальные координаты курсора
+                    global_pos = event.globalPos()
+                    # Получаем размеры подсказки
+                    tooltip_size = self.tooltip.size()
+                    # Получаем размеры экрана
+                    screen_geometry = self.screen().availableGeometry()
+
+                    # Вычисляем новую позицию подсказки, чтобы она не выходила за границы экрана
+                    x = global_pos.x() + 10
+                    y = global_pos.y() + 10
+
+                    # Проверяем, не выходит ли подсказка за правую границу экрана
+                    if x + tooltip_size.width() > screen_geometry.right():
+                        x = screen_geometry.right() - tooltip_size.width()
+
+                    # Проверяем, не выходит ли подсказка за нижнюю границу экрана
+                    if y + tooltip_size.height() > screen_geometry.bottom():
+                        y = screen_geometry.bottom() - tooltip_size.height()
+
+                    # Перемещаем подсказку
+                    self.tooltip.move(x, y)
                     self.tooltip.show()
             else:
                 # Если элемент не содержит данных, скрываем подсказку
@@ -141,15 +161,15 @@ class GraphWidget(QGraphicsView):
         return [u, v]
 
     def get_connected_edges(self, vertex):
-        """Получаем список рёбер, связанных с данным узлом"""
-        edges = []
+        """Получаем список уникальных рёбер, связанных с данным узлом"""
+        edges = set()  # Используем множество для хранения уникальных рёбер
         for u, edges_dict in self.graph.graph.items():
             if vertex in edges_dict:
-                edges.append((u, vertex))
+                edges.add((u, vertex))  # Добавляем ребро в одном направлении
             for v in edges_dict:
                 if vertex == v:
-                    edges.append((u, v))
-        return edges
+                    edges.add((u, v))  # Добавляем ребро в другом направлении
+        return list(edges)  # Возвращаем список уникальных рёбер
 
     def highlight_path(self, path: List[str]):
         self.highlighted_path = path
