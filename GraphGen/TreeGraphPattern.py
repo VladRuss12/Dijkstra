@@ -28,7 +28,7 @@ class TreeGraphPattern(GraphPattern):
         Иерархическое позиционирование с гарантированным расстоянием между узлами
         """
         position_map = {}
-        min_distance = 80  # Минимальное расстояние между узлами
+        min_distance = 120  # Минимальное расстояние между узлами
         level_height = 120  # Расстояние между уровнями
 
         # Построение структуры дерева
@@ -36,7 +36,7 @@ class TreeGraphPattern(GraphPattern):
         for child, parent in self.parents.items():
             children[parent].append(child)
 
-        # Расчет максимальной глубины
+        # Расчёт максимальной глубины
         def calc_depth(node):
             if not children[node]:
                 return 0
@@ -45,7 +45,7 @@ class TreeGraphPattern(GraphPattern):
         max_depth = calc_depth('0')
         y_step = (canvas_height - 100) / (max_depth + 1) if max_depth > 0 else 0
 
-        # Рекурсивное размещение с учетом расстояния
+        # Рекурсивное размещение с учётом расстояния
         def place_node(node, depth, x_min, x_max):
             child_nodes = children.get(node, [])
             num_children = len(child_nodes)
@@ -60,7 +60,7 @@ class TreeGraphPattern(GraphPattern):
 
             position_map[node] = (x, y)
 
-            # Расчет доступного пространства для детей
+            # Расчёт доступного пространства для детей
             if num_children > 0:
                 required_width = num_children * min_distance
                 available_width = x_max - x_min

@@ -1,9 +1,12 @@
 from typing import List
-
 from PySide6.QtGui import QColor, QPen, QBrush, QFont
-from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsTextItem, QGraphicsRectItem
+from PySide6.QtWidgets import QGraphicsScene, QGraphicsView, QGraphicsTextItem, QGraphicsRectItem, QToolTip, \
+    QGraphicsItem
 import random
 from PySide6.QtCore import Qt
+
+from GUI.CustomToolTip import CustomToolTip
+
 
 class GraphWidget(QGraphicsView):
     def __init__(self, graph, parent=None):
@@ -12,26 +15,35 @@ class GraphWidget(QGraphicsView):
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
         self.highlighted_path = []
+        self.setMouseTracking(True)  # Включаем отслеживание мыши
+        self.current_item = None  # Переменная для хранения текущего элемента для подсказки
+        self.tooltip = CustomToolTip(self)  # Создаем пользовательскую подсказку
+        self.tooltip.hide()  # Скрываем подсказку при старте
+
 
     def drawGraph(self):
         self.scene.clear()
+        self.adjustSceneSize()  # Добавляем автоматическое масштабирование
 
-        # Рёбра с увеличенной толщиной
+        # Рёбра
         for u, edges in self.graph.graph.items():
             for v, weight in edges.items():
                 if int(u) < int(v):
                     u_pos = self.graph.positions[u]
                     v_pos = self.graph.positions[v]
 
-                    # Лёгкий сдвиг рёбер, чтобы не перекрывали узлы
                     u_pos_offset = (u_pos[0] + random.uniform(-5, 5), u_pos[1] + random.uniform(-5, 5))
                     v_pos_offset = (v_pos[0] + random.uniform(-5, 5), v_pos[1] + random.uniform(-5, 5))
 
                     pen = QPen(QColor(0, 0, 0))  # Черный цвет
-                    pen.setWidth(3)
+                    pen.setWidth(1)  # Уменьшаем толщину
+                    pen.setColor(QColor(0, 0, 0, 100))  # Прозрачный чёрный цвет
                     pen.setCapStyle(Qt.RoundCap)
                     pen.setJoinStyle(Qt.RoundJoin)
-                    self.scene.addLine(u_pos_offset[0], u_pos_offset[1], v_pos_offset[0], v_pos_offset[1], pen)
+                    line = self.scene.addLine(u_pos_offset[0], u_pos_offset[1], v_pos_offset[0], v_pos_offset[1], pen)
+
+                    # Ребро для подсказки
+                    line.setData(0, (u, v, weight))  # Сохраняем данные ребра для использования при наведении
 
                     # Текст с весом ребра
                     mid_x = (u_pos_offset[0] + v_pos_offset[0]) / 2
@@ -62,7 +74,11 @@ class GraphWidget(QGraphicsView):
             radius = 20
             node_brush = QBrush(QColor(node_color[0], node_color[1], node_color[2]))
 
-            self.scene.addEllipse(pos[0] - radius, pos[1] - radius, radius * 2, radius * 2, QPen(), node_brush)
+            ellipse = self.scene.addEllipse(pos[0] - radius, pos[1] - radius, radius * 2, radius * 2, QPen(),
+                                            node_brush)
+
+            # Узел для подсказки
+            ellipse.setData(0, (vertex, pos))  # Сохраняем данные узла
 
             # Подписываем узел
             text_item = QGraphicsTextItem(vertex)
@@ -77,6 +93,40 @@ class GraphWidget(QGraphicsView):
 
         if self.highlighted_path:
             self._draw_highlighted_path()
+
+    def mouseMoveEvent(self, event):
+        """Обработчик движения мыши, отображающий подсказки"""
+        point = self.mapToScene(event.pos())
+        item = self.scene.itemAt(point, self.transform())
+
+        if isinstance(item, QGraphicsItem):
+            data = item.data(0)
+            if data:
+                if self.current_item != item:
+                    self.current_item = item
+                    if len(data) == 3:  # Если это ребро
+                        u, v, weight = data
+                        connected_nodes = self.get_connected_nodes(u, v)
+                        tooltip_text = f"Ребро: {u} → {v}, Вес: {weight}, Связанные узлы: {connected_nodes}"
+                    elif len(data) == 2:  # Если это узел
+                        vertex, pos = data
+                        connected_edges = self.get_connected_edges(vertex)
+                        tooltip_text = f"Узел: {vertex}, Позиция: {pos}, Связанные рёбра: {connected_edges}"
+
+                    # Показываем пользовательскую подсказку
+                    self.tooltip.setText(tooltip_text)
+                    self.tooltip.adjustSize()
+                    self.tooltip.move(event.globalPos().x() + 10, event.globalPos().y() + 10)
+                    self.tooltip.show()
+            else:
+                # Если элемент не содержит данных, скрываем подсказку
+                self.tooltip.hide()
+        else:
+            # Если курсор не на элементе, скрываем подсказку
+            self.tooltip.hide()
+
+        super().mouseMoveEvent(event)
+
     def randomColor(self):
         """Генерация случайного цвета RGB, исключая белый"""
         while True:
@@ -85,6 +135,21 @@ class GraphWidget(QGraphicsView):
             b = random.randint(0, 255)
             if (r, g, b) != (255, 255, 255):
                 return (r, g, b)
+
+    def get_connected_nodes(self, u, v):
+        """Получаем список узлов, связанных с данным ребром"""
+        return [u, v]
+
+    def get_connected_edges(self, vertex):
+        """Получаем список рёбер, связанных с данным узлом"""
+        edges = []
+        for u, edges_dict in self.graph.graph.items():
+            if vertex in edges_dict:
+                edges.append((u, vertex))
+            for v in edges_dict:
+                if vertex == v:
+                    edges.append((u, v))
+        return edges
 
     def highlight_path(self, path: List[str]):
         self.highlighted_path = path
@@ -124,3 +189,18 @@ class GraphWidget(QGraphicsView):
                 QPen(Qt.NoPen),
                 brush
             ).setZValue(0.5)
+
+    def adjustSceneSize(self):
+        """Автоматическое изменение размеров сцены по границам графа"""
+        if not self.graph.positions:
+            return
+
+        min_x = min(pos[0] for pos in self.graph.positions.values())
+        max_x = max(pos[0] for pos in self.graph.positions.values())
+        min_y = min(pos[1] for pos in self.graph.positions.values())
+        max_y = max(pos[1] for pos in self.graph.positions.values())
+
+        padding = 50  # Дополнительное пространство для отступов
+        self.scene.setSceneRect(min_x - padding, min_y - padding,
+                                (max_x - min_x) + 2 * padding,
+                                (max_y - min_y) + 2 * padding)

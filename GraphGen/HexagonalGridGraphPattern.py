@@ -17,14 +17,9 @@ class HexagonalGridGraphPattern(GraphPattern):
         for u in range(num_vertices):
             neighbors = self.get_valid_neighbors(u, num_vertices, rows, cols)
 
-            # Обязательные соединения с базовой вероятностью
+            # Только обязательные соединения с базовой вероятностью
             for v in neighbors:
                 if u < v and (random.random() <= self.base_connectivity_prob):
-                    self._add_edge(graph, u, v, min_weight, max_weight)
-
-            # Дополнительные случайные соединения
-            for v in neighbors:
-                if u < v and (random.random() <= edge_probability):
                     self._add_edge(graph, u, v, min_weight, max_weight)
 
         return graph
@@ -51,13 +46,11 @@ class HexagonalGridGraphPattern(GraphPattern):
         return neighbors
 
     def _get_directions(self, col: int) -> List[Tuple[int, int]]:
-        # Чередуем направления для шестиугольной сетки
+        # Убираем диагональные рёбра, оставляем только прямые
         if col % 2 == 0:
-            return [(-1, 0), (-1, 1), (0, -1),
-                    (0, 1), (1, 0), (1, 1)]
+            return [(-1, 0), (0, -1), (0, 1), (1, 0)]
         else:
-            return [(-1, -1), (-1, 0), (0, -1),
-                    (0, 1), (1, -1), (1, 0)]
+            return [(-1, 0), (0, -1), (0, 1), (1, 0)]
 
     def calculate_grid_size(self, num_vertices: int) -> Tuple[int, int]:
         cols = math.ceil(math.sqrt(num_vertices))

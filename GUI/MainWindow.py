@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
         self.graph_widget.graph = self.graph
         self.graph_widget.highlighted_path = []
         self.graph_widget.drawGraph()
+        self.graph_widget.setInteractive(True)
 
     def find_shortest_path(self):
         if not self.graph or not self.graph.graph:
